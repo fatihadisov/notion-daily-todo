@@ -56,9 +56,11 @@ async function createDailyPage({ title, isoDate }) {
       Name: { title: [{ text: { content: title } }] },
       Date: { date: { start: isoDate } },
     },
+    template: {
+      template_id: process.env.TEMPLATE_PAGE_ID,
+    },
   });
 }
-
 async function carryOverTasks({ yesterdayDailyId, todayDailyId, yesterdayTitle }) {
   const res = await notion.databases.query({
     database_id: TASKS_DB_ID,
@@ -89,6 +91,10 @@ async function carryOverTasks({ yesterdayDailyId, todayDailyId, yesterdayTitle }
 async function main() {
   if (!DAILY_DB_ID || !TASKS_DB_ID || !process.env.NOTION_TOKEN) {
     throw new Error("Missing env vars: NOTION_TOKEN, DAILY_DB_ID, TASKS_DB_ID");
+  }
+
+  if (!process.env.TEMPLATE_PAGE_ID) {
+    throw new Error("Missing env var: TEMPLATE_PAGE_ID");
   }
 
   const now = new Date();

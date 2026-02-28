@@ -21,3 +21,4 @@ jobs:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           DAILY_DB_ID: ${{ secrets.DAILY_DB_ID }}
           TASKS_DB_ID: ${{ secrets.TASKS_DB_ID }}
+          TEMPLATE_PAGE_ID: ${{ secrets.TEMPLATE_PAGE_ID }}
