@@ -1,15 +1,17 @@
 import { Client } from "@notionhq/client";
 
-const notion = new Client({ auth: process.env.NOTION_TOKEN });
+const notion = new Client({
+  auth: process.env.NOTION_TOKEN,
+  notionVersion: "2025-09-03",
+});
 
-const DAILY_DB_ID = process.env.DAILY_DB_ID;
-const TASKS_DB_ID = process.env.TASKS_DB_ID;
+const DAILY_DB_ID = process.env.DAILY_DB_ID;     // your database container id
+const TASKS_DB_ID = process.env.TASKS_DB_ID;     // your database container id
+const TEMPLATE_PAGE_ID = process.env.TEMPLATE_PAGE_ID;
 
-// Your timezone
 const TZ = "Asia/Baku";
 
 function formatTitle(date) {
-  // YYYY-MMM-DD ddd  e.g. 2026-Feb-28 Sat
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: TZ,
     year: "numeric",
@@ -19,12 +21,10 @@ function formatTitle(date) {
   }).formatToParts(date);
 
   const get = (type) => parts.find((p) => p.type === type)?.value;
-
   return `${get("year")}-${get("month")}-${get("day")} ${get("weekday")}`;
 }
 
 function formatISODate(date) {
-  // YYYY-MM-DD in Asia/Baku
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: TZ,
     year: "numeric",
@@ -38,32 +38,39 @@ function formatISODate(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-async function findDailyPageByDate(isoDate) {
-  const res = await notion.databases.query({
-    database_id: DAILY_DB_ID,
-    filter: {
-      property: "Date",
-      date: { equals: isoDate },
-    },
+async function getFirstDataSourceId(database_id) {
+  const db = await notion.databases.retrieve({ database_id });
+  const ds = db.data_sources?.[0];
+  if (!ds?.id) throw new Error(`No data_sources found for database ${database_id}`);
+  return ds.id;
+}
+
+async function findDailyPageByDate(dailyDataSourceId, isoDate) {
+  const res = await notion.dataSources.query({
+    data_source_id: dailyDataSourceId,
+    filter: { property: "Date", date: { equals: isoDate } },
   });
   return res.results?.[0] ?? null;
 }
 
-async function createDailyPage({ title, isoDate }) {
+async function createDailyPage(dailyDataSourceId, { title, isoDate }) {
+  // IMPORTANT: when using templates, you cannot pass children in this request.
   return await notion.pages.create({
-    parent: { database_id: DAILY_DB_ID },
+    parent: { type: "data_source_id", data_source_id: dailyDataSourceId },
     properties: {
       Name: { title: [{ text: { content: title } }] },
       Date: { date: { start: isoDate } },
     },
     template: {
-      template_id: process.env.TEMPLATE_PAGE_ID,
+      type: "template_id",
+      template_id: TEMPLATE_PAGE_ID,
     },
   });
 }
-async function carryOverTasks({ yesterdayDailyId, todayDailyId, yesterdayTitle }) {
-  const res = await notion.databases.query({
-    database_id: TASKS_DB_ID,
+
+async function carryOverTasks(tasksDataSourceId, { yesterdayDailyId, todayDailyId, yesterdayTitle }) {
+  const res = await notion.dataSources.query({
+    data_source_id: tasksDataSourceId,
     filter: {
       and: [
         { property: "Day", relation: { contains: yesterdayDailyId } },
@@ -89,13 +96,12 @@ async function carryOverTasks({ yesterdayDailyId, todayDailyId, yesterdayTitle }
 }
 
 async function main() {
-  if (!DAILY_DB_ID || !TASKS_DB_ID || !process.env.NOTION_TOKEN) {
-    throw new Error("Missing env vars: NOTION_TOKEN, DAILY_DB_ID, TASKS_DB_ID");
+  if (!process.env.NOTION_TOKEN || !DAILY_DB_ID || !TASKS_DB_ID || !TEMPLATE_PAGE_ID) {
+    throw new Error("Missing env vars: NOTION_TOKEN, DAILY_DB_ID, TASKS_DB_ID, TEMPLATE_PAGE_ID");
   }
 
-  if (!process.env.TEMPLATE_PAGE_ID) {
-    throw new Error("Missing env var: TEMPLATE_PAGE_ID");
-  }
+  const dailyDS = await getFirstDataSourceId(DAILY_DB_ID);
+  const tasksDS = await getFirstDataSourceId(TASKS_DB_ID);
 
   const now = new Date();
   const todayISO = formatISODate(now);
@@ -104,17 +110,15 @@ async function main() {
 
   const todayTitle = formatTitle(now);
 
-  // Get/Create today
-  let todayPage = await findDailyPageByDate(todayISO);
+  let todayPage = await findDailyPageByDate(dailyDS, todayISO);
   if (!todayPage) {
-    todayPage = await createDailyPage({ title: todayTitle, isoDate: todayISO });
+    todayPage = await createDailyPage(dailyDS, { title: todayTitle, isoDate: todayISO });
     console.log("Created today:", todayTitle);
   } else {
     console.log("Today exists:", todayTitle);
   }
 
-  // Carryover
-  const yesterdayPage = await findDailyPageByDate(yesterdayISO);
+  const yesterdayPage = await findDailyPageByDate(dailyDS, yesterdayISO);
   if (!yesterdayPage) {
     console.log("No yesterday page found, skipping carryover.");
     return;
@@ -123,7 +127,7 @@ async function main() {
   const yesterdayTitle =
     yesterdayPage.properties?.Name?.title?.[0]?.plain_text ?? yesterdayISO;
 
-  const carried = await carryOverTasks({
+  const carried = await carryOverTasks(tasksDS, {
     yesterdayDailyId: yesterdayPage.id,
     todayDailyId: todayPage.id,
     yesterdayTitle,
