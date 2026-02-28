@@ -1,0 +1,23 @@
+name: Create Notion Daily Note
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # GitHub cron uses UTC time
+    # 20:05 UTC == 00:05 Asia/Baku (UTC+4)
+    - cron: "5 20 * * *"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: node scripts/daily.js
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          DAILY_DB_ID: ${{ secrets.DAILY_DB_ID }}
+          TASKS_DB_ID: ${{ secrets.TASKS_DB_ID }}
