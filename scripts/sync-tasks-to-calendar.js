@@ -134,10 +134,15 @@ async function main() {
     const start = reminder;
     const end = addMinutes(reminder, duration);
 
+    const notionUrl = `https://www.notion.so/${task.id.replace(/-/g, "")}`;
+
     const description = `
-Status: ${status}
-${carriedFrom ? `Carried From: ${carriedFrom}` : ""}
-`.trim();
+    🔗 Open in Notion:
+    ${notionUrl}
+    
+    Status: ${status}
+    ${carriedFrom ? `Carried From: ${carriedFrom}` : ""}
+    `.trim();
 
     // ---------- UPDATE ----------
     if (eventId) {
