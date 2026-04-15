@@ -1,161 +1,188 @@
 # 🗓️ Notion Daily Todo Automation
 
-Automatically creates a new daily note in Notion every day with:
+A lightweight personal productivity system that combines **Notion + Google Calendar + GitHub Actions**.
 
--   ✅ Pre-filled daily layout (main goal, Kanban, questions, etc.)
--   ✅ Kanban board powered by a Tasks database
--   ✅ Automatic carryover of unfinished tasks (Backlog + In Progress)
--   ✅ Done tasks stay in the original day
+Automatically creates daily notes, manages tasks, and syncs time-based tasks to your calendar with notifications.
 
-Runs using **GitHub Actions (cron job)** + **Notion API**.
+---
 
-------------------------------------------------------------------------
+## ✨ Features
 
-# 📐 Architecture Overview
+- ✅ Auto-create daily notes (with template)
+- ✅ Kanban-style task management
+- ✅ Automatic carryover of unfinished tasks
+- ✅ Clean separation of daily context vs tasks
+- ✅ ⏰ Time-based tasks sync to Google Calendar
+- ✅ 🔔 Automatic reminders via calendar
+- ✅ 🔄 Tasks update & delete in calendar automatically
+- ✅ 🔗 Click calendar event → open Notion task
 
-## Notion Structure
+---
 
-### 1️⃣ Daily Notes (Database)
+## ⚡ Quick Setup (5–10 min)
 
-Each row = one day.
+### 1. Notion Setup
 
-Properties:
+Create 2 databases:
 
--   `Name` (Title)
--   `Date` (Date)
+**Daily Notes**
+- Name (Title)
+- Date (Date)
 
-Template inside Daily Notes: - **Today's main goal** - Linked Kanban
-view of Tasks - Filter: `Day contains This page` - Grouped by `Status` -
-Questions / Idea sections (optional)
+**Tasks**
+- Name (Title)
+- Status (Backlog / In Progress / Done)
+- Day (Relation → Daily Notes)
+- Carryover (Checkbox)
+- Carried From (Text)
 
-------------------------------------------------------------------------
+**(Optional for Calendar Sync)**
+- Reminder At (Date with time)
+- Duration (min) (Number)
+- Google Event ID (Text)
 
-### 2️⃣ Tasks (Database)
+---
 
-Each Kanban card is a real Task page.
+### 2. Create Daily Template
 
-Properties:
+Inside Daily Notes:
 
--   `Name` (Title)
--   `Status` (Status)
-    -   Backlog
-    -   In Progress
-    -   Done
--   `Day` (Relation → Daily Notes)
--   `Carryover` (Checkbox)
--   `Carried From` (Text)
+- Main goal section
+- Linked Tasks view
+  - Filter: Day contains This page
+  - Group by Status
 
-------------------------------------------------------------------------
+---
 
-### 3️⃣ Todo Page (Folder-style view)
+### 3. Create Notion Integration
 
-A normal Notion page that contains:
+- Go to Notion → Settings → Integrations
+- Create Internal Integration
+- Copy token
+- Share both databases with it
 
--   A linked view of **Daily Notes**
--   Sorted by `Date (Descending)`
+---
 
-Example structure:
+### 4. Get Notion IDs
 
-Todo ├── 2026-Mar-02 Mon ├── 2026-Mar-01 Sun ├── 2026-Feb-28 Sat
+From URLs:
 
-------------------------------------------------------------------------
+- DAILY_DB_ID
+- TASKS_DB_ID
+- TEMPLATE_PAGE_ID
 
-# ⚙️ What the Automation Does
+---
 
-Every day at 00:05 (Asia/Baku time):
+### 5. Add GitHub Secrets
 
-1.  Checks if today's Daily Note exists
-2.  If not:
-    -   Creates it
-    -   Applies your template automatically
-3.  Finds yesterday's Daily Note
-4.  Moves all tasks where:
-    -   `Status != Done`
-    -   `Day = yesterday`
-5.  Updates them to:
-    -   `Day = today`
-    -   `Carryover = true`
-    -   `Carried From = yesterday title`
-
-------------------------------------------------------------------------
-
-# 🔁 Daily Behavior
-
-  Yesterday Status   Today
-  ------------------ ----------------
-  Done               ❌ Not carried
-  Backlog            ✅ Carried
-  In Progress        ✅ Carried
-
-Tasks are moved, not duplicated.
-
-------------------------------------------------------------------------
-
-# 🚀 Setup Guide
-
-## 1️⃣ Create Notion Integration
-
-1.  Go to Notion → Settings → Integrations
-2.  Create **Internal Integration**
-3.  Copy the **Internal Integration Token**
-4.  Give it access to:
-    -   Daily Notes database
-    -   Tasks database
-
-------------------------------------------------------------------------
-
-## 2️⃣ Get Required IDs
-
-From Notion URLs:
-
-Daily Notes Database ID:
-https://www.notion.so/`<DATABASE_ID>`{=html}?v=...
-
-Tasks Database ID: https://www.notion.so/`<DATABASE_ID>`{=html}?v=...
-
-Template Page ID:
-https://www.notion.so/`<PAGE_NAME>`{=html}-`<PAGE_ID>`{=html}
-
-------------------------------------------------------------------------
-
-## 3️⃣ Add GitHub Secrets
-
-Add the following in your repo:
-
-NOTION_TOKEN\
-DAILY_DB_ID\
-TASKS_DB_ID\
+NOTION_TOKEN
+DAILY_DB_ID
+TASKS_DB_ID
 TEMPLATE_PAGE_ID
 
-------------------------------------------------------------------------
+---
 
-## 4️⃣ GitHub Workflow
+### 6. (Optional) Google Calendar Sync
 
-Runs daily via cron:
+#### Create Calendar
+- Create a new calendar (e.g. Notion Tasks)
+- Copy Calendar ID
 
-schedule: - cron: "5 20 \* \* \*" \# 00:05 Asia/Baku (UTC+4)
+#### Google Cloud Setup
+- Create project
+- Enable Google Calendar API
+- Create Service Account
+- Download JSON key
+- Share calendar with service account email
 
-------------------------------------------------------------------------
+#### Add Secrets
 
-# 🆓 Free Tier Safety
+GOOGLE_CALENDAR_ID
+GOOGLE_SERVICE_ACCOUNT_KEY
 
--   GitHub Actions: \~2000 minutes/month
--   This script uses \~10--20 minutes/month
--   Notion API: 3 requests/sec limit
--   Typical usage: \~10--30 requests/day
+---
 
-Safe for free tier usage.
+### 7. Run Workflows
 
-------------------------------------------------------------------------
+- Daily workflow → creates notes + carryover
+- Sync workflow → updates Google Calendar
 
-# 👤 Built With
+---
 
--   Notion
--   GitHub Actions
--   Notion API (v5)
--   Node.js
+## 📐 Architecture
 
-------------------------------------------------------------------------
+### Daily Notes (Database)
+Each row = one day.
 
-If you'd like enhancements (weekly reports, Slack notifications, streak
-tracking), they can easily be added.
+Includes:
+- Main goal
+- Linked tasks
+- Notes / ideas
+
+---
+
+### Tasks (Database)
+
+Core:
+- Name
+- Status
+- Day
+- Carryover
+- Carried From
+
+Calendar:
+- Reminder At
+- Duration (min)
+- Google Event ID
+
+---
+
+## ⚙️ Automation
+
+### 🟢 Daily Notes Workflow
+Runs once per day:
+
+- Creates today's note
+- Applies template
+- Moves unfinished tasks from yesterday
+
+---
+
+### 🔵 Calendar Sync Workflow
+Runs every 10 minutes:
+
+| Condition | Action |
+|----------|--------|
+| Has time | Create event |
+| Time changed | Update event |
+| Done | Delete event |
+| No time | Ignore |
+
+---
+
+## 🔁 Task Behavior
+
+| Case | Result |
+|-----|--------|
+| No time | Not scheduled |
+| Has time | Calendar event |
+| No duration | Default 30 min |
+| Done | Event removed |
+
+---
+
+## 🆓 Free Tier Usage
+
+- GitHub Actions: ~200 min/month
+- Notion API: Safe
+- Google Calendar API: Minimal usage
+
+---
+
+## 👤 Built With
+
+- Notion
+- GitHub Actions
+- Notion API
+- Google Calendar API
+- Node.js
